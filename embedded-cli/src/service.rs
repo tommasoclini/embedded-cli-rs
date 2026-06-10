@@ -118,7 +118,7 @@ pub trait FromRaw<'a>: Sized {
 }
 
 pub trait CommandProcessor<W: Write<Error = E>, E: embedded_io::Error> {
-    fn process<'a>(
+    async fn process<'a>(
         &mut self,
         cli: &mut CliHandle<'_, W, E>,
         raw: RawCommand<'a>,
@@ -131,7 +131,7 @@ where
     E: embedded_io::Error,
     F: for<'a> FnMut(&mut CliHandle<'_, W, E>, RawCommand<'a>) -> Result<(), ProcessError<'a, E>>,
 {
-    fn process<'a>(
+    async fn process<'a>(
         &mut self,
         cli: &mut CliHandle<'_, W, E>,
         command: RawCommand<'a>,

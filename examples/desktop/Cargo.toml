@@ -8,4 +8,5 @@ embedded-cli = { path = "../../embedded-cli" }
 embedded-io = "0.7.1"
 rand = "0.8.5"
 termion = "3.0.0"
+tokio = { version = "1.52.3", features = ["full"] }
 ufmt = "0.2.0"

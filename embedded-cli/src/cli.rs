@@ -157,7 +157,7 @@ where
     /// command set and/or command processor.
     /// In process callback you can change some outside state
     /// so next calls will use different processor
-    pub fn process_byte<C: Autocomplete + Help, P: CommandProcessor<W, E>>(
+    pub async fn process_byte<C: Autocomplete + Help, P: CommandProcessor<W, E>>(
         &mut self,
         b: u8,
         processor: &mut P,
@@ -165,15 +165,18 @@ where
         if let (Some(mut editor), Some(mut input_generator)) =
             (self.editor.take(), self.input_generator.take())
         {
-            let result = input_generator
-                .accept(b)
-                .map(|input| match input {
+            let result = if let Some(input) = input_generator.accept(b) {
+                Some(match input {
                     Input::Control(control) => {
                         self.on_control_input::<C, _>(&mut editor, control, processor)
+                            .await
                     }
                     Input::Char(text) => self.on_text_input(&mut editor, text),
                 })
-                .unwrap_or(Ok(()));
+            } else {
+                None
+            }
+            .unwrap_or(Ok(()));
 
             self.editor = Some(editor);
             self.input_generator = Some(input_generator);
@@ -244,7 +247,7 @@ where
         Ok(())
     }
 
-    fn on_control_input<C: Autocomplete + Help, P: CommandProcessor<W, E>>(
+    async fn on_control_input<C: Autocomplete + Help, P: CommandProcessor<W, E>>(
         &mut self,
         editor: &mut Editor<CommandBuffer>,
         control: ControlInput,
@@ -259,7 +262,7 @@ where
                 let text = editor.text_mut();
 
                 let tokens = Tokens::new(text);
-                self.process_input::<C, _>(tokens, processor)?;
+                self.process_input::<C, _>(tokens, processor).await?;
 
                 editor.clear();
 
@@ -354,7 +357,7 @@ where
         Ok(())
     }
 
-    fn process_command<P: CommandProcessor<W, E>>(
+    async fn process_command<P: CommandProcessor<W, E>>(
         &mut self,
         command: RawCommand<'_>,
         handler: &mut P,
@@ -362,7 +365,7 @@ where
         let cli_writer = Writer::new(&mut self.writer);
         let mut handle = CliHandle::new(cli_writer);
 
-        let res = handler.process(&mut handle, command);
+        let res = handler.process(&mut handle, command).await;
 
         if let Some(prompt) = handle.new_prompt {
             self.prompt = prompt;
@@ -380,7 +383,7 @@ where
     }
 
     #[allow(clippy::extra_unused_type_parameters)]
-    fn process_input<C: Help, P: CommandProcessor<W, E>>(
+    async fn process_input<C: Help, P: CommandProcessor<W, E>>(
         &mut self,
         tokens: Tokens<'_>,
         handler: &mut P,
@@ -391,7 +394,7 @@ where
                 return self.process_help::<C>(request);
             }
 
-            self.process_command(command, handler)?;
+            self.process_command(command, handler).await?;
         };
 
         Ok(())
