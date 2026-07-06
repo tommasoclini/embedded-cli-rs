@@ -1,6 +1,6 @@
 pub use crate::builder::CliBuilder;
 
-use core::fmt::Debug;
+use core::{fmt::Debug, future::Future, pin::pin, task::Context};
 
 #[cfg(not(feature = "history"))]
 use core::marker::PhantomData;
@@ -151,6 +151,14 @@ where
         cli.writer.flush_str(cli.prompt)?;
 
         Ok(cli)
+    }
+
+    pub fn process_byte_blocking<C: Autocomplete + Help, P: CommandProcessor<W, E>>(
+        &mut self,
+        b: u8,
+        processor: &mut P,
+    ) -> Result<(), E> {
+        embassy_futures::block_on(self.process_byte::<C, P>(b, processor))
     }
 
     /// Each call to process byte can be done with different
