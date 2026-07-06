@@ -1,6 +1,11 @@
 pub use crate::builder::CliBuilder;
 
-use core::{fmt::Debug, future::Future, pin::pin, task::Context};
+use core::{
+    fmt::Debug,
+    future::Future,
+    pin::pin,
+    task::{Context, Poll, Waker},
+};
 
 #[cfg(not(feature = "history"))]
 use core::marker::PhantomData;
@@ -157,8 +162,10 @@ where
         &mut self,
         b: u8,
         processor: &mut P,
-    ) -> Result<(), E> {
-        embassy_futures::block_on(self.process_byte::<C, P>(b, processor))
+    ) -> Poll<Result<(), E>> {
+        let p = pin!(self.process_byte::<C, P>(b, processor));
+        let mut cx = Context::from_waker(Waker::noop());
+        p.poll(&mut cx)
     }
 
     /// Each call to process byte can be done with different

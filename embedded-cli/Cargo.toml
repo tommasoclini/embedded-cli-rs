@@ -26,7 +26,6 @@ embedded-cli-macros = { version = "0.2.1", path = "../embedded-cli-macros", opti
 bitflags = "2.5.0"
 embedded-io = "0.7.1"
 ufmt = "0.2.0"
-embassy-futures = "0.1.2"
 
 [dev-dependencies]
 regex = "1.10.4"
