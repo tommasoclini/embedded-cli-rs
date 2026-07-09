@@ -158,7 +158,7 @@ where
         Ok(cli)
     }
 
-    pub fn try_process_byte<C: Autocomplete + Help, P: CommandProcessor<W, E>>(
+    pub fn process_byte_sync<C: Autocomplete + Help, P: CommandProcessor<W, E>>(
         &mut self,
         b: u8,
         processor: &mut P,
