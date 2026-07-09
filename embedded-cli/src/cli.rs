@@ -158,14 +158,17 @@ where
         Ok(cli)
     }
 
-    pub fn process_byte_blocking<C: Autocomplete + Help, P: CommandProcessor<W, E>>(
+    pub fn try_process_byte<C: Autocomplete + Help, P: CommandProcessor<W, E>>(
         &mut self,
         b: u8,
         processor: &mut P,
-    ) -> Poll<Result<(), E>> {
+    ) -> nb::Result<(), E> {
         let p = pin!(self.process_byte::<C, P>(b, processor));
         let mut cx = Context::from_waker(Waker::noop());
-        p.poll(&mut cx)
+        match p.poll(&mut cx) {
+            Poll::Ready(res) => res.map_err(nb::Error::Other),
+            Poll::Pending => Err(nb::Error::WouldBlock),
+        }
     }
 
     /// Each call to process byte can be done with different
