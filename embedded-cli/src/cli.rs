@@ -17,7 +17,10 @@ use crate::{
     command::RawCommand,
     editor::Editor,
     input::{ControlInput, Input, InputGenerator},
-    service::{Autocomplete, CommandProcessor, Help, ParseError, ProcessError},
+    service::{
+        AsyncCommandProcessor, Autocomplete, CommandProcessor, Help, ParseError, ProcessError,
+        SyncToAsyncAdapter,
+    },
     token::Tokens,
     utils,
     writer::{WriteExt, Writer},
@@ -158,16 +161,22 @@ where
         Ok(cli)
     }
 
-    pub fn process_byte_sync<C: Autocomplete + Help, P: CommandProcessor<W, E>>(
+    /// Each call to process byte can be done with different
+    /// command set and/or command processor.
+    /// In process callback you can change some outside state
+    /// so next calls will use different processor
+    pub fn process_byte<C: Autocomplete + Help, P: CommandProcessor<W, E>>(
         &mut self,
         b: u8,
         processor: &mut P,
-    ) -> nb::Result<(), E> {
-        let p = pin!(self.process_byte::<C, P>(b, processor));
-        let mut cx = Context::from_waker(Waker::noop());
-        match p.poll(&mut cx) {
-            Poll::Ready(res) => res.map_err(nb::Error::Other),
-            Poll::Pending => Err(nb::Error::WouldBlock),
+    ) -> Result<(), E> {
+        let w = Waker::noop();
+        let mut cx = Context::from_waker(&w);
+        match pin!(self.process_byte_async::<C, _>(b, &mut SyncToAsyncAdapter::new(processor)))
+            .poll(&mut cx)
+        {
+            Poll::Ready(res) => res,
+            Poll::Pending => unreachable!(),
         }
     }
 
@@ -175,7 +184,7 @@ where
     /// command set and/or command processor.
     /// In process callback you can change some outside state
     /// so next calls will use different processor
-    pub async fn process_byte<C: Autocomplete + Help, P: CommandProcessor<W, E>>(
+    pub async fn process_byte_async<C: Autocomplete + Help, P: AsyncCommandProcessor<W, E>>(
         &mut self,
         b: u8,
         processor: &mut P,
@@ -265,7 +274,7 @@ where
         Ok(())
     }
 
-    async fn on_control_input<C: Autocomplete + Help, P: CommandProcessor<W, E>>(
+    async fn on_control_input<C: Autocomplete + Help, P: AsyncCommandProcessor<W, E>>(
         &mut self,
         editor: &mut Editor<CommandBuffer>,
         control: ControlInput,
@@ -375,7 +384,7 @@ where
         Ok(())
     }
 
-    async fn process_command<P: CommandProcessor<W, E>>(
+    async fn process_command<P: AsyncCommandProcessor<W, E>>(
         &mut self,
         command: RawCommand<'_>,
         handler: &mut P,
@@ -401,7 +410,7 @@ where
     }
 
     #[allow(clippy::extra_unused_type_parameters)]
-    async fn process_input<C: Help, P: CommandProcessor<W, E>>(
+    async fn process_input<C: Help, P: AsyncCommandProcessor<W, E>>(
         &mut self,
         tokens: Tokens<'_>,
         handler: &mut P,

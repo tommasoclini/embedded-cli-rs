@@ -1,3 +1,5 @@
+use core::marker::PhantomData;
+
 use embedded_io::Write;
 
 use crate::{arguments::FromArgumentError, cli::CliHandle, command::RawCommand};
@@ -118,7 +120,7 @@ pub trait FromRaw<'a>: Sized {
 }
 
 pub trait CommandProcessor<W: Write<Error = E>, E: embedded_io::Error> {
-    async fn process<'a>(
+    fn process<'a>(
         &mut self,
         cli: &mut CliHandle<'_, W, E>,
         raw: RawCommand<'a>,
@@ -131,11 +133,64 @@ where
     E: embedded_io::Error,
     F: for<'a> FnMut(&mut CliHandle<'_, W, E>, RawCommand<'a>) -> Result<(), ProcessError<'a, E>>,
 {
-    async fn process<'a>(
+    fn process<'a>(
         &mut self,
         cli: &mut CliHandle<'_, W, E>,
         command: RawCommand<'a>,
     ) -> Result<(), ProcessError<'a, E>> {
         self(cli, command)
+    }
+}
+
+pub(crate) struct SyncToAsyncAdapter<
+    'a,
+    W: Write<Error = E>,
+    E: embedded_io::Error,
+    P: CommandProcessor<W, E>,
+>(&'a mut P, PhantomData<(W, E)>);
+
+impl<'a, W: Write<Error = E>, E: embedded_io::Error, P: CommandProcessor<W, E>>
+    SyncToAsyncAdapter<'a, W, E, P>
+{
+    pub const fn new(p: &'a mut P) -> Self {
+        Self(p, PhantomData)
+    }
+}
+
+impl<'b, W: Write<Error = E>, E: embedded_io::Error, P: CommandProcessor<W, E>>
+    AsyncCommandProcessor<W, E> for SyncToAsyncAdapter<'b, W, E, P>
+{
+    async fn process<'a>(
+        &mut self,
+        cli: &mut CliHandle<'_, W, E>,
+        raw: RawCommand<'a>,
+    ) -> Result<(), ProcessError<'a, E>> {
+        self.0.process(cli, raw)
+    }
+}
+
+pub trait AsyncCommandProcessor<W: Write<Error = E>, E: embedded_io::Error> {
+    async fn process<'a>(
+        &mut self,
+        cli: &mut CliHandle<'_, W, E>,
+        raw: RawCommand<'a>,
+    ) -> Result<(), ProcessError<'a, E>>;
+}
+
+impl<W, E, F> AsyncCommandProcessor<W, E> for F
+where
+    W: Write<Error = E>,
+    E: embedded_io::Error,
+    F: for<'a> AsyncFnMut(
+        &mut CliHandle<'_, W, E>,
+        RawCommand<'a>,
+    ) -> Result<(), ProcessError<'a, E>>,
+{
+    async fn process<'a>(
+        &mut self,
+        cli: &mut CliHandle<'_, W, E>,
+        command: RawCommand<'a>,
+    ) -> Result<(), ProcessError<'a, E>> {
+        self(cli, command).await
     }
 }
