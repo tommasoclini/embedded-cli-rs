@@ -166,8 +166,7 @@ fn on_status(
     Ok(())
 }
 
-#[tokio::main]
-async fn main() {
+fn main() {
     let stdout = stdout().into_raw_mode().unwrap();
 
     let writer = Writer { stdout };
@@ -239,7 +238,7 @@ Use left and right to move inside input."
         for byte in bytes {
             cli.process_byte::<BaseCommand<'_>, _>(
                 byte,
-                &mut BaseCommand::processor(async |cli, command| match command {
+                &mut BaseCommand::processor(|cli, command| match command {
                     BaseCommand::Led { id, command } => on_led(cli, &mut state, id, command),
                     BaseCommand::Adc { id, command } => on_adc(cli, &mut state, id, command),
                     BaseCommand::Status => on_status(cli, &mut state),
@@ -249,7 +248,6 @@ Use left and right to move inside input."
                     }
                 }),
             )
-            .await
             .unwrap();
         }
 

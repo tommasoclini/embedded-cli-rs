@@ -56,14 +56,14 @@ impl<'a> RawCommand<'a> {
     pub fn processor<
         W: Write<Error = E>,
         E: embedded_io::Error,
-        F: AsyncFnMut(&mut CliHandle<'_, W, E>, RawCommand<'_>) -> Result<(), E>,
+        F: FnMut(&mut CliHandle<'_, W, E>, RawCommand<'_>) -> Result<(), E>,
     >(
         f: F,
     ) -> impl CommandProcessor<W, E> {
         struct Processor<
             W: Write<Error = E>,
             E: embedded_io::Error,
-            F: AsyncFnMut(&mut CliHandle<'_, W, E>, RawCommand<'_>) -> Result<(), E>,
+            F: FnMut(&mut CliHandle<'_, W, E>, RawCommand<'_>) -> Result<(), E>,
         > {
             f: F,
             _ph: PhantomData<(W, E)>,
@@ -72,15 +72,15 @@ impl<'a> RawCommand<'a> {
         impl<
                 W: Write<Error = E>,
                 E: embedded_io::Error,
-                F: AsyncFnMut(&mut CliHandle<'_, W, E>, RawCommand<'_>) -> Result<(), E>,
+                F: FnMut(&mut CliHandle<'_, W, E>, RawCommand<'_>) -> Result<(), E>,
             > CommandProcessor<W, E> for Processor<W, E, F>
         {
-            async fn process<'a>(
+            fn process<'a>(
                 &mut self,
                 cli: &mut CliHandle<'_, W, E>,
                 raw: RawCommand<'a>,
             ) -> Result<(), ProcessError<'a, E>> {
-                (self.f)(cli, raw).await?;
+                (self.f)(cli, raw)?;
                 Ok(())
             }
         }
