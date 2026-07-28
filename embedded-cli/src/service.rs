@@ -169,6 +169,7 @@ impl<'b, W: Write<Error = E>, E: embedded_io::Error, P: CommandProcessor<W, E>>
     }
 }
 
+#[allow(async_fn_in_trait)]
 pub trait AsyncCommandProcessor<W: Write<Error = E>, E: embedded_io::Error> {
     async fn process<'a>(
         &mut self,

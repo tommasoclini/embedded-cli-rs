@@ -5,50 +5,100 @@ use syn::Visibility;
 
 use crate::utils::TargetType;
 
-pub fn impl_processor(vis: &Visibility, target: &TargetType) -> Result<TokenStream> {
+pub fn impl_processor(
+    vis: &Visibility,
+    target: &TargetType,
+    is_async: bool,
+) -> Result<TokenStream> {
     let ident = target.ident();
     let named_lifetime = target.named_lifetime();
     let unnamed_lifetime = target.unnamed_lifetime();
 
-    let output = quote! {
+    let output = if is_async {
+        quote! {
 
-        impl #named_lifetime #ident #named_lifetime {
-            #vis fn processor<
-                W: _io::Write<Error = E>,
-                E: _io::Error,
-                F: AsyncFnMut(&mut _cli::cli::CliHandle<'_, W, E>, #ident #unnamed_lifetime) -> Result<(), E>,
-            >(
-                f: F,
-            ) -> impl _cli::service::CommandProcessor<W, E> {
-                struct Processor<
+            impl #named_lifetime #ident #named_lifetime {
+                #vis fn processor<
                     W: _io::Write<Error = E>,
                     E: _io::Error,
                     F: AsyncFnMut(&mut _cli::cli::CliHandle<'_, W, E>, #ident #unnamed_lifetime) -> Result<(), E>,
-                > {
+                >(
                     f: F,
-                    _ph: core::marker::PhantomData<(W, E)>,
-                }
-
-                impl<
+                ) -> impl _cli::service::AsyncCommandProcessor<W, E> {
+                    struct Processor<
                         W: _io::Write<Error = E>,
                         E: _io::Error,
                         F: AsyncFnMut(&mut _cli::cli::CliHandle<'_, W, E>, #ident #unnamed_lifetime) -> Result<(), E>,
-                    > _cli::service::CommandProcessor<W, E> for Processor<W, E, F>
-                {
-                    async fn process<'a>(
-                        &mut self,
-                        cli: &mut _cli::cli::CliHandle<'_, W, E>,
-                        raw: _cli::command::RawCommand<'a>,
-                    ) -> Result<(), _cli::service::ProcessError<'a, E>> {
-                        let cmd = <#ident #unnamed_lifetime as _cli::service::FromRaw>::parse(raw)?;
-                        (self.f)(cli, cmd).await?;
-                        Ok(())
+                    > {
+                        f: F,
+                        _ph: core::marker::PhantomData<(W, E)>,
+                    }
+
+                    impl<
+                            W: _io::Write<Error = E>,
+                            E: _io::Error,
+                            F: AsyncFnMut(&mut _cli::cli::CliHandle<'_, W, E>, #ident #unnamed_lifetime) -> Result<(), E>,
+                        > _cli::service::AsyncCommandProcessor<W, E> for Processor<W, E, F>
+                    {
+                        async fn process<'a>(
+                            &mut self,
+                            cli: &mut _cli::cli::CliHandle<'_, W, E>,
+                            raw: _cli::command::RawCommand<'a>,
+                        ) -> Result<(), _cli::service::ProcessError<'a, E>> {
+                            let cmd = <#ident #unnamed_lifetime as _cli::service::FromRaw>::parse(raw)?;
+                            (self.f)(cli, cmd).await?;
+                            Ok(())
+                        }
+                    }
+
+                    Processor {
+                        f,
+                        _ph: core::marker::PhantomData,
                     }
                 }
+            }
+        }
+    } else {
+        quote! {
 
-                Processor {
-                    f,
-                    _ph: core::marker::PhantomData,
+            impl #named_lifetime #ident #named_lifetime {
+                #vis fn processor<
+                    W: _io::Write<Error = E>,
+                    E: _io::Error,
+                    F: FnMut(&mut _cli::cli::CliHandle<'_, W, E>, #ident #unnamed_lifetime) -> Result<(), E>,
+                >(
+                    f: F,
+                ) -> impl _cli::service::CommandProcessor<W, E> {
+                    struct Processor<
+                        W: _io::Write<Error = E>,
+                        E: _io::Error,
+                        F: FnMut(&mut _cli::cli::CliHandle<'_, W, E>, #ident #unnamed_lifetime) -> Result<(), E>,
+                    > {
+                        f: F,
+                        _ph: core::marker::PhantomData<(W, E)>,
+                    }
+
+                    impl<
+                            W: _io::Write<Error = E>,
+                            E: _io::Error,
+                            F: FnMut(&mut _cli::cli::CliHandle<'_, W, E>, #ident #unnamed_lifetime) -> Result<(), E>,
+                        > _cli::service::CommandProcessor<W, E> for Processor<W, E, F>
+                    {
+                        fn process<'a>(
+                            &mut self,
+                            cli: &mut _cli::cli::CliHandle<'_, W, E>,
+                            raw: _cli::command::RawCommand<'a>,
+                        ) -> Result<(), _cli::service::ProcessError<'a, E>> {
+                            let cmd = <#ident #unnamed_lifetime as _cli::service::FromRaw>::parse(raw)?;
+                            (self.f)(cli, cmd)?;
+                            Ok(())
+                        }
+                    }
+
+                    Processor {
+                        f,
+                        _ph: core::marker::PhantomData,
+                    }
                 }
             }
         }

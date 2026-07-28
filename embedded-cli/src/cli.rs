@@ -170,8 +170,7 @@ where
         b: u8,
         processor: &mut P,
     ) -> Result<(), E> {
-        let w = Waker::noop();
-        let mut cx = Context::from_waker(&w);
+        let mut cx = Context::from_waker(Waker::noop());
         match pin!(self.process_byte_async::<C, _>(b, &mut SyncToAsyncAdapter::new(processor)))
             .poll(&mut cx)
         {

@@ -25,7 +25,7 @@ pub mod writer;
 
 /// Macro available if embedded-cli is built with `features = ["macros"]`.
 #[cfg(feature = "embedded-cli-macros")]
-pub use embedded_cli_macros::{Command, CommandGroup};
+pub use embedded_cli_macros::{Command, CommandAsync, CommandGroup, CommandGroupAsync};
 
 // Used by generated code. Not public API.
 #[doc(hidden)]

@@ -11,7 +11,7 @@ mod utils;
 pub fn derive_command(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input);
 
-    let output = match command::derive_command(input) {
+    let output = match command::derive_command(input, false) {
         Ok(output) => output,
         Err(e) => return e.write_errors().into(),
     };
@@ -32,7 +32,49 @@ pub fn derive_command(input: TokenStream) -> TokenStream {
 pub fn derive_command_group(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input);
 
-    let output = match group::derive_command_group(input) {
+    let output = match group::derive_command_group(input, false) {
+        Ok(output) => output,
+        Err(e) => return e.write_errors().into(),
+    };
+
+    // wrap with anonymous scope
+    quote! {
+        const _: () = {
+            extern crate embedded_cli as _cli;
+            use _cli::__private::io as _io;
+
+            #output
+        };
+    }
+    .into()
+}
+
+#[proc_macro_derive(CommandAsync, attributes(command, arg))]
+pub fn derive_command_async(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input);
+
+    let output = match command::derive_command(input, true) {
+        Ok(output) => output,
+        Err(e) => return e.write_errors().into(),
+    };
+
+    // wrap with anonymous scope
+    quote! {
+        const _: () = {
+            extern crate embedded_cli as _cli;
+            use _cli::__private::io as _io;
+
+            #output
+        };
+    }
+    .into()
+}
+
+#[proc_macro_derive(CommandGroupAsync, attributes(group))]
+pub fn derive_command_group_async(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input);
+
+    let output = match group::derive_command_group(input, true) {
         Ok(output) => output,
         Err(e) => return e.write_errors().into(),
     };
