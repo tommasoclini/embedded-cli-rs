@@ -53,6 +53,7 @@ impl<'a> RawCommand<'a> {
         self.name
     }
 
+    #[cfg(not(feature = "async"))]
     pub fn processor<
         W: Write<Error = E>,
         E: embedded_io::Error,
@@ -81,6 +82,45 @@ impl<'a> RawCommand<'a> {
                 raw: RawCommand<'a>,
             ) -> Result<(), ProcessError<'a, E>> {
                 (self.f)(cli, raw)?;
+                Ok(())
+            }
+        }
+
+        Processor {
+            f,
+            _ph: PhantomData,
+        }
+    }
+
+    #[cfg(feature = "async")]
+    pub fn processor<
+        W: Write<Error = E>,
+        E: embedded_io::Error,
+        F: AsyncFnMut(&mut CliHandle<'_, W, E>, RawCommand<'_>) -> Result<(), E>,
+    >(
+        f: F,
+    ) -> impl CommandProcessor<W, E> {
+        struct Processor<
+            W: Write<Error = E>,
+            E: embedded_io::Error,
+            F: AsyncFnMut(&mut CliHandle<'_, W, E>, RawCommand<'_>) -> Result<(), E>,
+        > {
+            f: F,
+            _ph: PhantomData<(W, E)>,
+        }
+
+        impl<
+                W: Write<Error = E>,
+                E: embedded_io::Error,
+                F: AsyncFnMut(&mut CliHandle<'_, W, E>, RawCommand<'_>) -> Result<(), E>,
+            > CommandProcessor<W, E> for Processor<W, E, F>
+        {
+            async fn process<'a>(
+                &mut self,
+                cli: &mut CliHandle<'_, W, E>,
+                raw: RawCommand<'a>,
+            ) -> Result<(), ProcessError<'a, E>> {
+                (self.f)(cli, raw).await?;
                 Ok(())
             }
         }

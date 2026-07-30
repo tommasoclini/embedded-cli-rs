@@ -1,4 +1,5 @@
 use embedded_io::Write;
+use maybe_async_cfg2::maybe;
 
 use crate::{arguments::FromArgumentError, cli::CliHandle, command::RawCommand};
 
@@ -117,14 +118,20 @@ pub trait FromRaw<'a>: Sized {
     fn parse(raw: RawCommand<'a>) -> Result<Self, ParseError<'a>>;
 }
 
+#[maybe(
+    sync(cfg(not(feature = "async")), keep_self),
+    async(feature = "async", keep_self)
+)]
+#[allow(async_fn_in_trait)]
 pub trait CommandProcessor<W: Write<Error = E>, E: embedded_io::Error> {
-    fn process<'a>(
+    async fn process<'a>(
         &mut self,
         cli: &mut CliHandle<'_, W, E>,
         raw: RawCommand<'a>,
     ) -> Result<(), ProcessError<'a, E>>;
 }
 
+#[cfg(not(feature = "async"))]
 impl<W, E, F> CommandProcessor<W, E> for F
 where
     W: Write<Error = E>,
@@ -137,5 +144,24 @@ where
         command: RawCommand<'a>,
     ) -> Result<(), ProcessError<'a, E>> {
         self(cli, command)
+    }
+}
+
+#[cfg(feature = "async")]
+impl<W, E, F> CommandProcessor<W, E> for F
+where
+    W: Write<Error = E>,
+    E: embedded_io::Error,
+    F: for<'a> AsyncFnMut(
+        &mut CliHandle<'_, W, E>,
+        RawCommand<'a>,
+    ) -> Result<(), ProcessError<'a, E>>,
+{
+    async fn process<'a>(
+        &mut self,
+        cli: &mut CliHandle<'_, W, E>,
+        command: RawCommand<'a>,
+    ) -> Result<(), ProcessError<'a, E>> {
+        self(cli, command).await
     }
 }
