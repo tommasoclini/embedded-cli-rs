@@ -170,38 +170,6 @@ where
     /// command set and/or command processor.
     /// In process callback you can change some outside state
     /// so next calls will use different processor
-    #[cfg(not(feature = "async"))]
-    pub fn process_byte<C: Autocomplete + Help, P: CommandProcessor<W, E>>(
-        &mut self,
-        b: u8,
-        processor: &mut P,
-    ) -> Result<(), E> {
-        if let (Some(mut editor), Some(mut input_generator)) =
-            (self.editor.take(), self.input_generator.take())
-        {
-            let result = input_generator
-                .accept(b)
-                .map(|input| match input {
-                    Input::Control(control) => {
-                        self.on_control_input::<C, _>(&mut editor, control, processor)
-                    }
-                    Input::Char(text) => self.on_text_input(&mut editor, text),
-                })
-                .unwrap_or(Ok(()));
-
-            self.editor = Some(editor);
-            self.input_generator = Some(input_generator);
-            result
-        } else {
-            Ok(())
-        }
-    }
-
-    /// Each call to process byte can be done with different
-    /// command set and/or command processor.
-    /// In process callback you can change some outside state
-    /// so next calls will use different processor
-    #[cfg(feature = "async")]
     pub async fn process_byte<C: Autocomplete + Help, P: CommandProcessor<W, E>>(
         &mut self,
         b: u8,
