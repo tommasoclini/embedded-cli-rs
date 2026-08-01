@@ -18,6 +18,9 @@ use crate::{
     writer::{WriteExt, Writer},
 };
 
+#[cfg(feature = "async")]
+use crate::service::CommandProcessorAsync;
+
 #[cfg(feature = "autocomplete")]
 use crate::autocomplete::Request;
 
@@ -78,10 +81,7 @@ enum NavigateInput {
     Forward,
 }
 
-#[maybe(
-    sync(cfg(not(feature = "async")), keep_self),
-    async(feature = "async", keep_self)
-)]
+#[maybe(sync(keep_self), async(feature = "async"))]
 pub struct Cli<W: Write<Error = E>, E: Error, CommandBuffer: Buffer, HistoryBuffer: Buffer> {
     editor: Option<Editor<CommandBuffer>>,
     #[cfg(feature = "history")]
@@ -93,10 +93,7 @@ pub struct Cli<W: Write<Error = E>, E: Error, CommandBuffer: Buffer, HistoryBuff
     _ph: PhantomData<HistoryBuffer>,
 }
 
-#[maybe(
-    sync(cfg(not(feature = "async")), keep_self),
-    async(feature = "async", keep_self)
-)]
+#[maybe(sync(keep_self), async(feature = "async"))]
 impl<W, E, CommandBuffer, HistoryBuffer> Debug for Cli<W, E, CommandBuffer, HistoryBuffer>
 where
     W: Write<Error = E>,
@@ -114,8 +111,9 @@ where
 }
 
 #[maybe(
-    sync(cfg(not(feature = "async")), keep_self),
-    async(feature = "async", keep_self)
+    sync(keep_self),
+    async(feature = "async"),
+    idents(CommandProcessor(sync, async = "CommandProcessorAsync"))
 )]
 impl<W, E, CommandBuffer, HistoryBuffer> Cli<W, E, CommandBuffer, HistoryBuffer>
 where

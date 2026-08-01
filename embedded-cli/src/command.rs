@@ -9,6 +9,9 @@ use crate::{
     token::Tokens,
 };
 
+#[cfg(feature = "async")]
+use crate::service::CommandProcessorAsync;
+
 #[cfg(feature = "autocomplete")]
 use crate::autocomplete::{Autocompletion, Request};
 
@@ -53,7 +56,6 @@ impl<'a> RawCommand<'a> {
         self.name
     }
 
-    #[cfg(not(feature = "async"))]
     pub fn processor<
         W: Write<Error = E>,
         E: embedded_io::Error,
@@ -93,13 +95,13 @@ impl<'a> RawCommand<'a> {
     }
 
     #[cfg(feature = "async")]
-    pub fn processor<
+    pub fn processor_async<
         W: Write<Error = E>,
         E: embedded_io::Error,
         F: AsyncFnMut(&mut CliHandle<'_, W, E>, RawCommand<'_>) -> Result<(), E>,
     >(
         f: F,
-    ) -> impl CommandProcessor<W, E> {
+    ) -> impl CommandProcessorAsync<W, E> {
         struct Processor<
             W: Write<Error = E>,
             E: embedded_io::Error,
@@ -113,7 +115,7 @@ impl<'a> RawCommand<'a> {
                 W: Write<Error = E>,
                 E: embedded_io::Error,
                 F: AsyncFnMut(&mut CliHandle<'_, W, E>, RawCommand<'_>) -> Result<(), E>,
-            > CommandProcessor<W, E> for Processor<W, E, F>
+            > CommandProcessorAsync<W, E> for Processor<W, E, F>
         {
             async fn process<'a>(
                 &mut self,

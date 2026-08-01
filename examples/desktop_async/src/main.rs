@@ -188,7 +188,7 @@ async fn main() {
         .writer(writer)
         .command_buffer(command_buffer)
         .history_buffer(history_buffer)
-        .build()
+        .build_async()
         .expect("Failed to build CLI");
 
     // Setting the CLI prompt
@@ -239,7 +239,7 @@ Use left and right to move inside input."
         for byte in bytes {
             cli.process_byte::<BaseCommand<'_>, _>(
                 byte,
-                &mut BaseCommand::processor(async |cli, command| match command {
+                &mut BaseCommand::processor_async(async |cli, command| match command {
                     BaseCommand::Led { id, command } => on_led(cli, &mut state, id, command),
                     BaseCommand::Adc { id, command } => on_adc(cli, &mut state, id, command),
                     BaseCommand::Status => on_status(cli, &mut state),

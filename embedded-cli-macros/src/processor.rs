@@ -10,17 +10,19 @@ pub fn impl_processor(vis: &Visibility, target: &TargetType) -> Result<TokenStre
     let named_lifetime = target.named_lifetime();
     let unnamed_lifetime = target.unnamed_lifetime();
 
-    let output = if cfg!(feature = "async") {
-        quote! {
+    let mut output = TokenStream::new();
+
+    if cfg!(feature = "async") {
+        output.extend(quote! {
 
             impl #named_lifetime #ident #named_lifetime {
-                #vis fn processor<
+                #vis fn processor_async<
                     W: _io::Write<Error = E>,
                     E: _io::Error,
                     F: AsyncFnMut(&mut _cli::cli::CliHandle<'_, W, E>, #ident #unnamed_lifetime) -> Result<(), E>,
                 >(
                     f: F,
-                ) -> impl _cli::service::CommandProcessor<W, E> {
+                ) -> impl _cli::service::CommandProcessorAsync<W, E> {
                     struct Processor<
                         W: _io::Write<Error = E>,
                         E: _io::Error,
@@ -34,7 +36,7 @@ pub fn impl_processor(vis: &Visibility, target: &TargetType) -> Result<TokenStre
                             W: _io::Write<Error = E>,
                             E: _io::Error,
                             F: AsyncFnMut(&mut _cli::cli::CliHandle<'_, W, E>, #ident #unnamed_lifetime) -> Result<(), E>,
-                        > _cli::service::CommandProcessor<W, E> for Processor<W, E, F>
+                        > _cli::service::CommandProcessorAsync<W, E> for Processor<W, E, F>
                     {
                         async fn process<'a>(
                             &mut self,
@@ -53,8 +55,9 @@ pub fn impl_processor(vis: &Visibility, target: &TargetType) -> Result<TokenStre
                     }
                 }
             }
-        }
-    } else {
+        })
+    };
+    output.extend(
         quote! {
 
             impl #named_lifetime #ident #named_lifetime {
@@ -98,7 +101,7 @@ pub fn impl_processor(vis: &Visibility, target: &TargetType) -> Result<TokenStre
                 }
             }
         }
-    };
+    );
 
     Ok(output)
 }

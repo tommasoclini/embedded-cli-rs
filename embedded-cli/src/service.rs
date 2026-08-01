@@ -118,11 +118,7 @@ pub trait FromRaw<'a>: Sized {
     fn parse(raw: RawCommand<'a>) -> Result<Self, ParseError<'a>>;
 }
 
-#[maybe(
-    sync(cfg(not(feature = "async")), keep_self),
-    async(feature = "async", keep_self)
-)]
-#[allow(async_fn_in_trait)]
+#[maybe(sync(keep_self), async(feature = "async", allow(async_fn_in_trait)))]
 pub trait CommandProcessor<W: Write<Error = E>, E: embedded_io::Error> {
     async fn process<'a>(
         &mut self,
@@ -131,7 +127,6 @@ pub trait CommandProcessor<W: Write<Error = E>, E: embedded_io::Error> {
     ) -> Result<(), ProcessError<'a, E>>;
 }
 
-#[cfg(not(feature = "async"))]
 impl<W, E, F> CommandProcessor<W, E> for F
 where
     W: Write<Error = E>,
@@ -148,7 +143,7 @@ where
 }
 
 #[cfg(feature = "async")]
-impl<W, E, F> CommandProcessor<W, E> for F
+impl<W, E, F> CommandProcessorAsync<W, E> for F
 where
     W: Write<Error = E>,
     E: embedded_io::Error,
